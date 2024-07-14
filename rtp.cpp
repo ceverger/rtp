@@ -3,17 +3,22 @@
 
 	RTPHeader::RTPHeader()
 	{
-		bzero(header, HeaderSize);
+		bzero(header, HEADER_SIZE);
 	}
 
-	void RTPHeader::getHeader(uint8_t *buf, int bufsize)
+	int RTPHeader::getHeader(uint8_t *buf, int bufsize) const
 	{
-		if(buf == nullptr || bufsize < HEADER_SIZE) return;
+		if(buf == nullptr || bufsize < HEADER_SIZE) return -1;
 
-		for(int i = 0; i < HEADER_SIZE; ++i)
+		int i = 0;
+
+		while(i < bufsize && i < HEADER_SIZE)
 		{
 			buf[i] = header[i];
+			i++;
 		}
+
+		return i;
 	}
 
 	uint8_t RTPHeader::getV() const
@@ -143,29 +148,29 @@
 
 	void RTPHeader::setSEQ(uint16_t seq)
 	{
-		m_pos[2] = (seq >> 8) & 0x00FF;
-		m_pos[3] = seq & 0x00FF;
+		header[2] = (seq >> 8) & 0x00FF;
+		header[3] = seq & 0x00FF;
 	}
 
 	void RTPHeader::setTS(uint32_t ts)
 	{
-		m_pos[4] = (ts >> 24) & 0x000000FF;
-		m_pos[5] = (ts >> 16) & 0x000000FF;
-		m_pos[6] = (ts >> 8)  & 0x000000FF;
-		m_pos[7] =  ts & 0x000000FF;
+		header[4] = (ts >> 24) & 0x000000FF;
+		header[5] = (ts >> 16) & 0x000000FF;
+		header[6] = (ts >> 8)  & 0x000000FF;
+		header[7] =  ts & 0x000000FF;
 	}
 
 	void RTPHeader::setSSRC(uint32_t ssrc)
 	{
-		m_pos[8]  = (ssrc >> 24) & 0x000000FF;
-		m_pos[9]  = (ssrc >> 16) & 0x000000FF;
-		m_pos[10] = (ssrc >> 8)  & 0x000000FF;
-		m_pos[11] =  ssrc & 0x000000FF;
+		header[8]  = (ssrc >> 24) & 0x000000FF;
+		header[9]  = (ssrc >> 16) & 0x000000FF;
+		header[10] = (ssrc >> 8)  & 0x000000FF;
+		header[11] =  ssrc & 0x000000FF;
 	}
 
 	void RTPHeader::reset()
 	{
-		bzero(header, HeaderSize);
+		bzero(header, HEADER_SIZE);
 	}
 
 	void RTPHeader::
@@ -208,7 +213,7 @@
 		m_end = nullptr;
 	}
 
-	void RTPPacket::getHeader(RTPHeader & header)
+	void RTPPacket::getHeader(RTPHeader & header) const
 	{
 		if(cur == nullptr) return;
 
@@ -217,15 +222,13 @@
 
 	int RTPPacket::getHeader(uint8_t *buf, int bufsize) const
 	{
-		if(cur == nullptr || h_end == nullptr) return -1;
+		if(m_pos == nullptr || m_end == nullptr) return -1;
 
 		int i = 0;
 
-		cur = m_pos;
-
-		while(i < bufsize && cur != h_end)
+		while(i < bufsize && i < HEADER_SIZE)
 		{
-			*buf++ = *cur++;
+			buf[i] = m_pos[i];
 			 i++;
 		}
 
@@ -234,16 +237,14 @@
 
 	int RTPPacket::getPayload(char *buf, int bufsize) const
 	{
-		if(cur == nullptr || h_end == nullptr) return -1;
+		if(h_end == nullptr) return -1;
 
 		int i = 0;
 
-		cur = h_end;
-
-		while(i < bufsize && cur != end)
+		while(i < bufsize && i < getPayloadSize())
 		{
-			*buf++ = *cur++;
-			 i++;
+			buf[i] = h_end[i];
+			i++;
 		}
 
 		return i;		
@@ -265,30 +266,99 @@
 
 	void RTPPacket::setHeader(RTPHeader & header)
 	{
-		
+		if(m_pos == nullptr || m_end == nullptr) return;
+
+		cur = m_pos;
+
+		int ret;
+		uint8_t buf[HEADER_SIZE];
+
+		ret = header.getHeader(buf, HEADER_SIZE);
+		if(ret < HEADER_SIZE) return;
+
+		int i = 0;
+
+		while(i < ret && i < HEADER_SIZE)
+		{
+			m_pos[i] = buf[i];
+			i++;
+		}
+
+		h_end = cur + ret;
+		cur = h_end;
 	}
 
 	void RTPPacket::setHeader(uint8_t *buf, int bufsize)
 	{
-		
+		if(m_pos == nullptr || m_end == nullptr) return;
+
+		cur = m_pos;
+
+		int i = 0;
+
+		while(i < bufsize && i < HEADER_SIZE)
+		{
+			m_pos[i] = buf[i];
+			i++;
+		}
+
+		h_end = cur + i;
+		cur = h_end;
 	}
 
 	void RTPPacket::setPayload(uint8_t *buf, int bufsize)
 	{
+		if(m_pos == nullptr || m_end == nullptr || h_end == nullptr) return;
 		
+		cur = h_end;
+
+		int i = 0;
+
+		while(i < bufsize && i < HEADER_SIZE)
+		{
+			cur[i] = buf[i];
+			i++;
+		}
+
+		cur = h_end + i;
+	}
+
+	void RTPPacket::setData(uint8_t *buf, int bufsize)
+	{
+		if(m_pos != nullptr || m_end != nullptr) return;
+
+		cur = m_pos;
+	
+		int i = 0;
+
+		while(i < bufsize)
+		{
+			cur[i] = buf[i];
+			i++;
+		}
+
+		h_end = cur + HEADER_SIZE;
+		cur = cur + i;
 	}
 
 	void RTPPacket::init()
 	{
-		
+		if(m_pos != nullptr || m_end != nullptr) return;
+
+		cur = m_pos;
 	}
 
 	void RTPPacket::reset()
 	{
-		
+		if(m_pos == nullptr || m_end == nullptr) return;
+	
+		cur = m_pos;
 	}
 
 	void RTPPacket::clear()
 	{
-		
+		m_pos = nullptr;
+		  cur = nullptr;
+		h_end = nullptr;
+		m_end = nullptr;		
 	}

@@ -32,7 +32,7 @@
 				uint32_t getTS()   const;
 				uint32_t getSSRC() const;
 
-				     int getHeader(uint8_t *buf, int bufsize) const;
+				    int getHeader(uint8_t *buf, int bufsize) const;
 
 			// Модификаторы класса
 
@@ -91,8 +91,8 @@
 				int getHeaderSize()  const { return h_end - m_pos; }
 				int getPayloadSize() const { return m_end - h_end; }
 
-				void getHeader(RTPHeader & header);
-				int getHeader(uint8_t *buf, int bufsize);
+				void getHeader(RTPHeader & header) const;
+				int getHeader(uint8_t *buf, int bufsize) const;
 				int getPayload(char *buf, int bufsize) const;
 
 
@@ -104,6 +104,8 @@
 				void setHeader(RTPHeader & header);
 				void setHeader(uint8_t *buf, int bufsize);
 				void setPayload(uint8_t *buf, int bufsize);
+
+				void setData(uint8_t *buf, int bufsize);
 
 			// Другие методы класса
 				
